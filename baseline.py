@@ -241,6 +241,7 @@ def main():
     parser.add_argument("--num_epoch", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--optim", type=str, default="adam", choices=["adam", "adamw"])
+    parser.add_argument("--patience", type=int, default=5)
     args = parser.parse_args()
 
     # hyper parameters
@@ -253,7 +254,7 @@ def main():
     num_epoch = args.num_epoch
     lr = args.lr
     optim = args.optim
-    patience = 5
+    patience = args.patience
     shuffle = True
 
     # seed
