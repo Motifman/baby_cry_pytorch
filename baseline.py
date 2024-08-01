@@ -197,8 +197,8 @@ def eval(model, criterion, eval_loader, device):
             sum_loss += loss.item()
             sum_acc += accuracy(outputs, labels).item()
             preds = torch.argmax(outputs, dim=1)
-            pred_list.append(preds)
-            labels_list.append(labels)
+            pred_list.append(preds.cpu())
+            labels_list.append(labels.cpu())
 
     return sum_loss / len(eval_loader), sum_acc / len(eval_loader), pred_list, labels_list
 
