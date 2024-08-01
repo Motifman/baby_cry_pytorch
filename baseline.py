@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 import seaborn as sns
+from argparse import ArgumentParser
 
 
 class BabyCryDataset(Dataset):
@@ -197,8 +198,8 @@ def eval(model, criterion, eval_loader, device):
             sum_loss += loss.item()
             sum_acc += accuracy(outputs, labels).item()
             preds = torch.argmax(outputs, dim=1)
-            pred_list.append(preds.cpu())
-            labels_list.append(labels.cpu())
+            pred_list = pred_list + preds.cpu().tolist()
+            labels_list = labels_list + labels.cpu().tolist()
 
     return sum_loss / len(eval_loader), sum_acc / len(eval_loader), pred_list, labels_list
 
@@ -232,14 +233,22 @@ def plot_metrics(metrics, path1, path2):
 
 
 def main():
+    # argparse
+    parser = ArgumentParser("cnn_baby_cry")
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--class_num", type=int, default=9)
+    parser.add_argument("--seed", type=int, default=999)
+    parser.add_argument("--num_epoch", type=int, default=50)
+    args = parser.parse_args()
+
     # hyper parameters
     waveforms_path = 'baby_cry_preprocessed_wave.npy'
     mel_specs_path = 'baby_cry_preprocessed_mel.npy'
     metadata_path = 'baby_cry_metadata.csv'
-    batch_size = 16
-    class_num = 9
-    seed = 999
-    num_epoch = 50
+    batch_size = args.batch_size
+    class_num = args.class_num
+    seed = args.seed
+    num_epoch = args.num_epoch
     patience = 5
     shuffle = True
 
