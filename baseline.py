@@ -240,6 +240,7 @@ def main():
     parser.add_argument("--seed", type=int, default=999)
     parser.add_argument("--num_epoch", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--optim", type=str, default="adam", choices=["adam", "adamw"])
     args = parser.parse_args()
 
     # hyper parameters
@@ -251,6 +252,7 @@ def main():
     seed = args.seed
     num_epoch = args.num_epoch
     lr = args.lr
+    optim = args.optim
     patience = 5
     shuffle = True
 
@@ -308,7 +310,12 @@ def main():
 
     model = CNN_baseline(H, W, class_num)
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    if optim == "adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    elif optim == "adamw":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    else:
+        raise ValueError(optim)
     criterion = nn.CrossEntropyLoss()
 
     earlystopping = EarlyStopping(
