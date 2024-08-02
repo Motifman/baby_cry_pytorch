@@ -16,9 +16,10 @@ from argparse import ArgumentParser
 
 
 class BabyCryDataset(Dataset):
-    def __init__(self, waveforms_path, mel_specs_path, metadata_path):
+    def __init__(self, waveforms_path, mel_specs_path, metadata_path, masking=False):
         self.waveforms_path = waveforms_path
         self.mel_specs_path = mel_specs_path
+        self.masking = masking
         self.metadata = pd.read_csv(metadata_path)
 
         self.waveforms_np = np.load(waveforms_path)
@@ -27,8 +28,9 @@ class BabyCryDataset(Dataset):
         self.labels = self.metadata['reason'].tolist()
         self.label_map = {label: idx for idx, label in enumerate(sorted(self.metadata['reason'].unique()))}
 
-        self.masking_f = FrequencyMasking(freq_mask_param=50)
-        self.masking_t = TimeMasking(time_mask_param=50, iid_masks=True)
+        if masking:
+            self.masking_f = FrequencyMasking(freq_mask_param=50)
+            self.masking_t = TimeMasking(time_mask_param=50, iid_masks=True)
 
     def __len__(self):
         return len(self.metadata)
@@ -42,8 +44,9 @@ class BabyCryDataset(Dataset):
         mel_spec_tensor = torch.tensor(mel_spec, dtype=torch.float32)
         mel_spec_tensor = mel_spec_tensor.unsqueeze(0)
 
-        mel_spec_tensor = self.masking_f(mel_spec_tensor)
-        mel_spec_tensor = self.masking_t(mel_spec_tensor)
+        if self.masking:
+            mel_spec_tensor = self.masking_f(mel_spec_tensor)
+            mel_spec_tensor = self.masking_t(mel_spec_tensor)
 
         label_tensor = torch.tensor(label, dtype=torch.long)
 
@@ -163,6 +166,7 @@ def plot_label_count(labels):
 def accuracy(outputs, targets):
     # outputs: (B, D)
     # targets: (B,)
+    print(outputs.shape, targets.shape)
     outputs = torch.argmax(outputs, dim=1)  # (B, T)
     return (outputs == targets).float().mean()
 
@@ -181,12 +185,16 @@ def train(model, optimizer, criterion, train_loader, cutmix, device):
             mels, labels = cutmix(mels, labels)
 
         outputs = model(mels)
+        print(outputs.shape, mels.shape, labels.shape)
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        targets = torch.argmax(labels, dim=1)
+        if len(labels.shape) == 2:
+            targets = torch.argmax(labels, dim=1)
+        else:
+            targets = labels
         sum_loss += loss.item()
         sum_acc += accuracy(outputs, targets).item()
 
@@ -257,6 +265,7 @@ def main():
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--weighted", type=bool, default=False)
     parser.add_argument("--cutmix", type=bool, default=False)
+    parser.add_argument("--train_masking", type=bool, default=False)
     args = parser.parse_args()
 
     # hyper parameters
@@ -272,6 +281,7 @@ def main():
     patience = args.patience
     weighted = args.weighted
     cutmix = args.cutmix
+    masking = args.train_masking
     shuffle = True
 
     # seed
@@ -291,8 +301,8 @@ def main():
     )
 
     # Datasetクラスのインスタンスを作成
-    train_dataset = BabyCryDataset(waveforms_path, mel_specs_path, metadata_path)
-    val_dataset = BabyCryDataset(waveforms_path, mel_specs_path, metadata_path)
+    train_dataset = BabyCryDataset(waveforms_path, mel_specs_path, metadata_path, masking=masking)
+    val_dataset = BabyCryDataset(waveforms_path, mel_specs_path, metadata_path, masking=False)
 
     labels = train_dataset.labels
 
