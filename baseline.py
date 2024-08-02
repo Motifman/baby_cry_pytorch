@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
+from torchvision.transforms import v2
 import numpy as np
 import pandas as pd
 from collections import Counter
@@ -157,7 +158,7 @@ def accuracy(outputs, targets):
     return (outputs == targets).float().mean()
 
 
-def train(model, optimizer, criterion, train_loader, device):
+def train(model, optimizer, criterion, train_loader, cutmix, device):
     sum_loss = 0
     sum_acc = 0
 
@@ -167,14 +168,18 @@ def train(model, optimizer, criterion, train_loader, device):
         mels = mels.unsqueeze(1)
         labels = labels.to(device)
 
+        # cutmix
+        mels, labels = cutmix(mels, labels)
+
         outputs = model(mels)
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        targets = torch.argmax(labels, dim=1)
         sum_loss += loss.item()
-        sum_acc += accuracy(outputs, labels).item()
+        sum_acc += accuracy(outputs, targets).item()
 
     return sum_loss / len(train_loader), sum_acc / len(train_loader)
 
@@ -313,6 +318,8 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
     eval_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
 
+    cutmix = v2.CutMix(num_classes=class_num)
+
     # labelの種類を分析
     # 辞書にラベルごとの個数を格納する
     for waveforms, mel_specs, labels in train_loader:
@@ -362,7 +369,7 @@ def main():
 
     # train, eval
     for epoch in range(num_epoch):
-        train_loss, train_acc = train(model, optimizer, criterion, train_loader, device)
+        train_loss, train_acc = train(model, optimizer, criterion, train_loader, cutmix, device)
         eval_loss, eval_acc, _, _ = eval(model, criterion, eval_loader, device)
 
         metrics["epoch"].append(epoch)
