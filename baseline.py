@@ -264,6 +264,7 @@ def main():
     parser.add_argument("--weighted", type=bool, default=False)
     parser.add_argument("--cutmix", type=bool, default=False)
     parser.add_argument("--train_masking", type=bool, default=False)
+    parser.add_argument("--inv_sample", type=bool, default=False)
     args = parser.parse_args()
 
     # hyper parameters
@@ -280,6 +281,7 @@ def main():
     weighted = args.weighted
     cutmix = args.cutmix
     masking = args.train_masking
+    inv_sample = args.inv_sample
     shuffle = True
 
     # seed
@@ -332,8 +334,11 @@ def main():
     val_dataset.metadata = val_dataset.metadata.iloc[val_indices].reset_index(drop=True)
     val_dataset.labels = val_dataset.metadata['reason'].tolist()
 
-    sampler = WeightedRandomSampler(weights=weights, num_samples=len(train_dataset), replacement=True)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+    if inv_sample:
+        sampler = WeightedRandomSampler(weights=weights, num_samples=len(train_dataset), replacement=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+    else:
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     eval_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
 
     if cutmix:
