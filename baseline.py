@@ -40,6 +40,8 @@ class BabyCryDataset(Dataset):
 
         waveform_tensor = torch.tensor(waveform, dtype=torch.float32)
         mel_spec_tensor = torch.tensor(mel_spec, dtype=torch.float32)
+        mel_spec_tensor = mel_spec_tensor.unsqueeze(0)
+
         mel_spec_tensor = self.masking_f(mel_spec_tensor)
         mel_spec_tensor = self.masking_t(mel_spec_tensor)
 
@@ -172,7 +174,6 @@ def train(model, optimizer, criterion, train_loader, cutmix, device):
     model.train()
     for _, mels, labels in tqdm(train_loader):
         mels = mels.to(device)
-        mels = mels.unsqueeze(1)
         labels = labels.to(device)
 
         # cutmix
@@ -202,7 +203,6 @@ def eval(model, criterion, eval_loader, device):
     with torch.no_grad():
         for _, mels, labels in tqdm(eval_loader):
             mels = mels.to(device)
-            mels = mels.unsqueeze(1)
             labels = labels.to(device)
 
             outputs = model(mels)
@@ -339,7 +339,7 @@ def main():
         print("Batch of waveforms:", waveforms.size())
         print("Batch of mel spectrograms:", mel_specs.size())
         print("Batch of labels:", labels.size())
-        _, H, W = mel_specs.shape
+        _, _, H, W = mel_specs.shape
         break
 
     print(f"train_size: {len(train_loader)}, eval_size: {len(eval_loader)}")
