@@ -317,11 +317,11 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--optim", type=str, default="adam", choices=["adam", "adamw"])
     parser.add_argument("--patience", type=int, default=5)
-    parser.add_argument("--weighted", type=bool, action="store_true")
-    parser.add_argument("--cutmix", type=bool, action="store_true")
-    parser.add_argument("--train_masking", type=bool, action="store_true")
-    parser.add_argument("--inv_sample", type=bool, action="store_true")
-    parser.add_argument("--cmo", type=bool, action="store_true")
+    parser.add_argument("--weighted", action="store_true")
+    parser.add_argument("--cutmix", action="store_true")
+    parser.add_argument("--train_masking", action="store_true")
+    parser.add_argument("--inv_sample", action="store_true")
+    parser.add_argument("--cmo", action="store_true")
     args = parser.parse_args()
 
     # hyper parameters
