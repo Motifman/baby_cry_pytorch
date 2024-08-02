@@ -13,6 +13,7 @@ from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 import seaborn as sns
 from argparse import ArgumentParser
+from librosa.display import specshow
 
 
 class BabyCryDataset(Dataset):
@@ -160,7 +161,8 @@ def plot_label_count(labels):
     plt.xlabel('label')
     plt.ylabel('number')
 
-    plt.show()
+    plt.savefig("log/label_count.pdf")
+    plt.close()
 
 
 def accuracy(outputs, targets):
@@ -170,21 +172,74 @@ def accuracy(outputs, targets):
     return (outputs == targets).float().mean()
 
 
-def train(model, optimizer, criterion, train_loader, cutmix, device):
+def rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+
+def train(model, optimizer, criterion, train_loader, cutmix, cmo_train_loader, device):
     sum_loss = 0
     sum_acc = 0
 
+    if cmo_train_loader is not None:
+        cmo_train_loader_iter = iter(cmo_train_loader)
+
+    flag = 0
     model.train()
-    for _, mels, labels in tqdm(train_loader):
-        mels = mels.to(device)
+    for _, inputs, labels in tqdm(train_loader):
+        inputs = inputs.to(device)
         labels = labels.to(device)
 
         # cutmix
         if cutmix is not None:
-            mels, labels = cutmix(mels, labels)
+            inputs, labels = cutmix(inputs, labels)
 
-        outputs = model(mels)
-        loss = criterion(outputs, labels)
+        # cmo
+        if cmo_train_loader is not None:
+            try:
+                _, inputs2, labels2 = next(cmo_train_loader_iter)
+            except:
+                cmo_train_loader_iter = iter(cmo_train_loader)
+                _, inputs2, labels2 = next(cmo_train_loader_iter)
+
+            inputs2 = inputs2[:inputs.size(0)].to(device)
+            labels2 = labels2[:labels.size(0)].to(device)
+
+        if cmo_train_loader is not None:
+            lam = np.random.uniform(0, 1)
+            bbx1, bby1, bbx2, bby2 = rand_bbox(inputs.shape, lam)
+            inputs[:, :, bbx1:bbx2, bby1:bby2] = inputs2[:, :, bbx1:bbx2, bby1:bby2]
+            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (inputs.size()[-1] * inputs.size()[-2]))
+            outputs = model(inputs)
+            loss = criterion(outputs, labels) * lam + criterion(outputs, labels2) * (1. - lam)
+            if flag == 0:
+                specshow(inputs[0, 0].detach().cpu().numpy(), x_axis='time', y_axis='mel')
+                plt.colorbar(format='%+2.0f dB')
+                plt.title('Mel-frequency spectrogram')
+                plt.xlabel('Time (s)')
+                plt.ylabel('Frequency (Hz)')
+                plt.savefig("log/cutmix_spec.pdf")
+                plt.close()
+                flag = 1
+
+        else:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -193,6 +248,7 @@ def train(model, optimizer, criterion, train_loader, cutmix, device):
             targets = torch.argmax(labels, dim=1)
         else:
             targets = labels
+
         sum_loss += loss.item()
         sum_acc += accuracy(outputs, targets).item()
 
@@ -262,9 +318,10 @@ def main():
     parser.add_argument("--optim", type=str, default="adam", choices=["adam", "adamw"])
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--weighted", type=bool, default=False)
-    parser.add_argument("--cutmix", type=bool, default=False)
+    parser.add_argument("--cutmix", type=str, default=False)
     parser.add_argument("--train_masking", type=bool, default=False)
     parser.add_argument("--inv_sample", type=bool, default=False)
+    parser.add_argument("--cmo", type=bool, default=False)
     args = parser.parse_args()
 
     # hyper parameters
@@ -282,7 +339,10 @@ def main():
     cutmix = args.cutmix
     masking = args.train_masking
     inv_sample = args.inv_sample
-    shuffle = True
+    cmo = args.cmo
+
+    if cutmix and cmo:
+        raise ValueError("--cutmix and --cmo are mutually exclusive, and at least one of them must be false.")
 
     # seed
     set_seed(seed)
@@ -339,7 +399,13 @@ def main():
         train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
     else:
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    eval_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
+    eval_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    if cmo:
+        sampler = WeightedRandomSampler(weights=weights, num_samples=len(train_dataset), replacement=True)
+        cmo_train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+    else:
+        cmo_train_loader = None
 
     if cutmix:
         cutmix = v2.CutMix(num_classes=class_num)
@@ -395,7 +461,7 @@ def main():
 
     # train, eval
     for epoch in range(num_epoch):
-        train_loss, train_acc = train(model, optimizer, criterion, train_loader, cutmix, device)
+        train_loss, train_acc = train(model, optimizer, criterion, train_loader, cutmix, cmo_train_loader, device)
         eval_loss, eval_acc, _, _ = eval(model, criterion, eval_loader, device)
 
         metrics["epoch"].append(epoch)
