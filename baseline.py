@@ -166,7 +166,6 @@ def plot_label_count(labels):
 def accuracy(outputs, targets):
     # outputs: (B, D)
     # targets: (B,)
-    print(outputs.shape, targets.shape)
     outputs = torch.argmax(outputs, dim=1)  # (B, T)
     return (outputs == targets).float().mean()
 
@@ -185,7 +184,6 @@ def train(model, optimizer, criterion, train_loader, cutmix, device):
             mels, labels = cutmix(mels, labels)
 
         outputs = model(mels)
-        print(outputs.shape, mels.shape, labels.shape)
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
         loss.backward()
