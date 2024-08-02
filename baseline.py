@@ -176,7 +176,8 @@ def train(model, optimizer, criterion, train_loader, cutmix, device):
         labels = labels.to(device)
 
         # cutmix
-        mels, labels = cutmix(mels, labels)
+        if cutmix is not None:
+            mels, labels = cutmix(mels, labels)
 
         outputs = model(mels)
         loss = criterion(outputs, labels)
@@ -255,6 +256,7 @@ def main():
     parser.add_argument("--optim", type=str, default="adam", choices=["adam", "adamw"])
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--weighted", type=bool, default=False)
+    parser.add_argument("--cutmix", type=bool, default=False)
     args = parser.parse_args()
 
     # hyper parameters
@@ -269,6 +271,7 @@ def main():
     optim = args.optim
     patience = args.patience
     weighted = args.weighted
+    cutmix = args.cutmix
     shuffle = True
 
     # seed
@@ -325,7 +328,10 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
     eval_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
 
-    cutmix = v2.CutMix(num_classes=class_num)
+    if cutmix:
+        cutmix = v2.CutMix(num_classes=class_num)
+    else:
+        cutmix = None
 
     # labelの種類を分析
     # 辞書にラベルごとの個数を格納する
