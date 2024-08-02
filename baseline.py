@@ -332,7 +332,7 @@ def main():
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     else:
         raise ValueError(optim)
-    criterion = nn.CrossEntropyLoss(weight=weights)
+    criterion = nn.CrossEntropyLoss(weight=weights.to(device))
 
     earlystopping = EarlyStopping(
         patience=patience,
