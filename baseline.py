@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 import numpy as np
 import pandas as pd
 from collections import Counter
@@ -293,6 +293,10 @@ def main():
     # 重みを正規化して合計が1になるようにする（オプション）
     weights = torch.tensor(weights, dtype=torch.float32)
     weights = weights / weights.sum()
+    print(weights)
+    print(classes)
+    print(sorted(train_dataset.metadata['reason'].unique()))
+    print(sorted(val_dataset.metadata['reason'].unique()))
 
     # インデックスを基にデータセットを分割
     train_dataset.waveforms_np = train_dataset.waveforms_np[train_indices]
@@ -305,7 +309,8 @@ def main():
     val_dataset.metadata = val_dataset.metadata.iloc[val_indices].reset_index(drop=True)
     val_dataset.labels = val_dataset.metadata['reason'].tolist()
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+    sampler = WeightedRandomSampler(weights=weights, num_samples=len(train_dataset), replacement=True)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
     eval_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
 
     # labelの種類を分析
