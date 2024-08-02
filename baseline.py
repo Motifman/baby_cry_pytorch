@@ -277,6 +277,21 @@ def main():
     train_dataset = BabyCryDataset(waveforms_path, mel_specs_path, metadata_path)
     val_dataset = BabyCryDataset(waveforms_path, mel_specs_path, metadata_path)
 
+    labels = train_dataset.labels
+
+    # クラスごとのサンプル数をカウント
+    class_counts = Counter(labels)
+
+    # クラスのインデックス順に並べる
+    classes = sorted(class_counts.keys())
+
+    # クラスごとの重みを計算 (サンプル数の逆数)
+    weights = [1.0 / class_counts[cls] for cls in classes]
+
+    # 重みを正規化して合計が1になるようにする（オプション）
+    weights = torch.tensor(weights, dtype=torch.float32)
+    weights = weights / weights.sum()
+
     # インデックスを基にデータセットを分割
     train_dataset.waveforms_np = train_dataset.waveforms_np[train_indices]
     train_dataset.mel_specs_np = train_dataset.mel_specs_np[train_indices]
@@ -317,7 +332,7 @@ def main():
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     else:
         raise ValueError(optim)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=weights)
 
     earlystopping = EarlyStopping(
         patience=patience,
