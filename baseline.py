@@ -30,8 +30,8 @@ class BabyCryDataset(Dataset):
         self.label_map = {label: idx for idx, label in enumerate(sorted(self.metadata['reason'].unique()))}
 
         if masking:
-            self.masking_f = FrequencyMasking(freq_mask_param=50)
-            self.masking_t = TimeMasking(time_mask_param=50, iid_masks=True)
+            self.masking_f = FrequencyMasking(freq_mask_param=30)
+            self.masking_t = TimeMasking(time_mask_param=40, iid_masks=True)
 
     def __len__(self):
         return len(self.metadata)
