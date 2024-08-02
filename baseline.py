@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision.transforms import v2
+from torchaudio.transforms import TimeMasking, FrequencyMasking
 import numpy as np
 import pandas as pd
 from collections import Counter
@@ -26,6 +27,9 @@ class BabyCryDataset(Dataset):
         self.labels = self.metadata['reason'].tolist()
         self.label_map = {label: idx for idx, label in enumerate(sorted(self.metadata['reason'].unique()))}
 
+        self.masking_f = FrequencyMasking(freq_mask_param=50)
+        self.masking_t = TimeMasking(time_mask_param=50, iid_masks=True)
+
     def __len__(self):
         return len(self.metadata)
 
@@ -36,6 +40,9 @@ class BabyCryDataset(Dataset):
 
         waveform_tensor = torch.tensor(waveform, dtype=torch.float32)
         mel_spec_tensor = torch.tensor(mel_spec, dtype=torch.float32)
+        mel_spec_tensor = self.masking_f(mel_spec_tensor)
+        mel_spec_tensor = self.masking_t(mel_spec_tensor)
+
         label_tensor = torch.tensor(label, dtype=torch.long)
 
         return waveform_tensor, mel_spec_tensor, label_tensor
