@@ -57,7 +57,7 @@ class CNN_baseline(nn.Module):
 
         self.conv1 = nn.Conv2d(1, 32, kernel_size=(5, 7), stride=2, padding=1)
         self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=(3, 5), stride=2, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=(5, 7), stride=2, padding=1)
         self.bn2 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=(3, 5), stride=2, padding=1)
         self.bn3 = nn.BatchNorm2d(128)
