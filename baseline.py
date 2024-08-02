@@ -242,6 +242,7 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--optim", type=str, default="adam", choices=["adam", "adamw"])
     parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--weighted", type=bool, default=False)
     args = parser.parse_args()
 
     # hyper parameters
@@ -255,6 +256,7 @@ def main():
     lr = args.lr
     optim = args.optim
     patience = args.patience
+    weighted = args.weighted
     shuffle = True
 
     # seed
@@ -332,7 +334,11 @@ def main():
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     else:
         raise ValueError(optim)
-    criterion = nn.CrossEntropyLoss(weight=weights.to(device))
+
+    if weighted:
+        criterion = nn.CrossEntropyLoss(weight=weights.to(device))
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     earlystopping = EarlyStopping(
         patience=patience,
